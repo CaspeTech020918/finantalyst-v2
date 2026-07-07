@@ -1,0 +1,405 @@
+// Finantalyst — Prisma Schema
+// Phase 1 foundation: User/mode, Auth, TaxRuleConfig, AgentAction, ProviderConfig, Portfolio stubs
+
+generator client {
+  provider = "prisma-client"
+  output   = "../app/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ─── Enums ───────────────────────────────────────────────────
+
+enum UserMode {
+  INDIVIDUAL
+  FREELANCER
+  BUSINESS
+  STARTUP
+}
+
+enum TaxRegime {
+  OLD
+  NEW
+}
+
+enum ActionType {
+  TAX_ESTIMATE
+  RUNWAY_ALERT
+  CASH_GAP_ALERT
+  INVOICE_DRAFT
+  COMPLIANCE_REMINDER
+  PORTFOLIO_BRIEFING
+  DEDUCTION_SUGGESTION
+  CFO_INSIGHT
+}
+
+enum ActionStatus {
+  PENDING
+  APPROVED
+  DISMISSED
+  EXECUTED
+  FAILED
+}
+
+enum AIProviderEnum {
+  ANTHROPIC
+  OPENAI
+  GEMINI
+  MOCK
+}
+
+enum TaskType {
+  CATEGORIZATION
+  EXTRACTION
+  DRAFTING
+  CFO_ANALYSIS
+  TAX_REASONING
+}
+
+enum AssetType {
+  EQUITY
+  MUTUAL_FUND
+  BOND
+  GOLD
+  CRYPTO
+  FIXED_DEPOSIT
+  OTHER
+}
+
+// ─── Auth (NextAuth v5 required tables) ──────────────────────
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// ─── User & Mode ─────────────────────────────────────────────
+
+model User {
+  id             String    @id @default(cuid())
+  name           String?
+  email          String    @unique
+  emailVerified  DateTime?
+  image          String?
+  passwordHash   String?
+  mode           UserMode  @default(INDIVIDUAL)
+  onboardingDone Boolean   @default(false)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  accounts            Account[]
+  sessions            Session[]
+  taxProfile          TaxProfile?
+  voiceProfile        UserVoiceProfile?
+  agentActions        AgentAction[]
+  portfolios          Portfolio[]
+  providerConfigs     ProviderConfig[]
+  financialAccounts   FinancialAccount[]
+  dealListings        DealListing[]       @relation("StartupDeals")
+  investmentInterests InvestmentInterest[] @relation("InvestorInterests")
+}
+
+model UserVoiceProfile {
+  id         String   @id @default(cuid())
+  userId     String   @unique
+  tone       String   @default("professional")
+  vocabulary String[]
+  examples   String[]
+  updatedAt  DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// ─── Tax & Compliance ─────────────────────────────────────────
+
+model TaxProfile {
+  id            String    @id @default(cuid())
+  userId        String    @unique
+  pan           String?
+  regime        TaxRegime @default(NEW)
+  financialYear String    @default("2025-26")
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  user             User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  incomeSources    IncomeSource[]
+  deductions       Deduction[]
+  complianceEvents ComplianceEvent[]
+}
+
+model IncomeSource {
+  id            String   @id @default(cuid())
+  taxProfileId  String
+  type          String
+  label         String?
+  amount        Decimal  @db.Decimal(15, 2)
+  financialYear String
+  createdAt     DateTime @default(now())
+
+  taxProfile TaxProfile @relation(fields: [taxProfileId], references: [id], onDelete: Cascade)
+}
+
+model Deduction {
+  id            String   @id @default(cuid())
+  taxProfileId  String
+  section       String
+  label         String?
+  amount        Decimal  @db.Decimal(15, 2)
+  financialYear String
+  proofDocument String?
+  createdAt     DateTime @default(now())
+
+  taxProfile TaxProfile @relation(fields: [taxProfileId], references: [id], onDelete: Cascade)
+}
+
+model ComplianceEvent {
+  id           String    @id @default(cuid())
+  taxProfileId String
+  type         String
+  label        String
+  dueDate      DateTime
+  status       String    @default("PENDING")
+  filedAt      DateTime?
+  notes        String?
+  createdAt    DateTime  @default(now())
+
+  taxProfile TaxProfile @relation(fields: [taxProfileId], references: [id], onDelete: Cascade)
+}
+
+// Versioned — never mutate, always add new rows per FY
+model TaxRuleConfig {
+  id              String    @id @default(cuid())
+  financialYear   String
+  regime          TaxRegime
+  slabs           Json
+  deductionLimits Json
+  surchargeRules  Json
+  rebateLimit     Decimal?  @db.Decimal(15, 2)
+  basicExemption  Decimal   @db.Decimal(15, 2)
+  createdAt       DateTime  @default(now())
+
+  @@unique([financialYear, regime])
+}
+
+// ─── Agent Actions & Approval Inbox ──────────────────────────
+
+model AgentAction {
+  id                String       @id @default(cuid())
+  userId            String
+  type              ActionType
+  status            ActionStatus @default(PENDING)
+  draftContent      String       @db.Text
+  rationale         String       @db.Text
+  referencedFigures Json
+  isReversible      Boolean      @default(true)
+  // [REGULATED] — requires licensed partner before execution
+  isRegulated       Boolean      @default(false)
+  regulatedNote     String?
+  createdAt         DateTime     @default(now())
+  approvedAt        DateTime?
+  dismissedAt       DateTime?
+  executedAt        DateTime?
+  errorMessage      String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// ─── AI Provider Routing Config ───────────────────────────────
+
+model ProviderConfig {
+  id        String         @id @default(cuid())
+  userId    String?
+  taskType  TaskType
+  provider  AIProviderEnum
+  model     String
+  isActive  Boolean        @default(true)
+  createdAt DateTime       @default(now())
+
+  user User? @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, taskType])
+}
+
+// ─── Financial Accounts & Transactions ───────────────────────
+
+enum FinancialAccountType {
+  BANK_SAVINGS
+  BANK_CURRENT
+  CASH
+  CREDIT_CARD
+  BROKERAGE
+  MUTUAL_FUND
+  FD
+  PPF
+  NPS
+  REAL_ESTATE
+  SALARY
+  OTHER
+}
+
+model FinancialAccount {
+  id          String               @id @default(cuid())
+  userId      String
+  user        User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name        String
+  type        FinancialAccountType @default(BANK_SAVINGS)
+  branch      String?
+  currency    String               @default("INR")
+  openingBal  Float                @default(0)
+  isDefault   Boolean              @default(false)
+  createdAt   DateTime             @default(now())
+
+  transactions Txn[]
+
+  @@index([userId])
+}
+
+model Txn {
+  id          String           @id @default(cuid())
+  userId      String
+  accountId   String
+  account     FinancialAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  date        DateTime         @db.Date
+  amount      Float
+  description String
+  category    String?
+  reference   String?
+  source      String           @default("manual")
+  createdAt   DateTime         @default(now())
+
+  @@index([userId, date])
+  @@index([accountId, date])
+}
+
+// ─── Deal Room (Private Raise — expression of interest only) ──
+// [REGULATED] Actual money movement + share issuance requires SEBI AIF/crowdfunding
+// licence and NSDL/CDSL depository partnership before going live.
+
+enum DealStatus {
+  DRAFT
+  OPEN
+  CLOSED
+  FUNDED
+}
+
+model DealListing {
+  id            String     @id @default(cuid())
+  userId        String
+  user          User       @relation("StartupDeals", fields: [userId], references: [id], onDelete: Cascade)
+  companyName   String
+  tagline       String
+  description   String     @db.Text
+  sector        String
+  targetAmount  Float
+  minInvestment Float      @default(1000)
+  equityPct     Float
+  preMoneyVal   Float
+  status        DealStatus @default(DRAFT)
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+
+  interests InvestmentInterest[]
+
+  @@index([status])
+}
+
+model InvestmentInterest {
+  id         String      @id @default(cuid())
+  dealId     String
+  deal       DealListing @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  investorId String
+  investor   User        @relation("InvestorInterests", fields: [investorId], references: [id], onDelete: Cascade)
+  amount     Float
+  message    String?
+  status     String      @default("PENDING")
+  createdAt  DateTime    @default(now())
+
+  @@unique([dealId, investorId])
+  @@index([investorId])
+}
+
+// ─── Investment Intelligence (stubs — full build in Phase 4) ──
+
+model Portfolio {
+  id        String   @id @default(cuid())
+  userId    String
+  name      String   @default("My Portfolio")
+  createdAt DateTime @default(now())
+
+  user      User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  holdings  Holding[]
+  briefings PortfolioBriefing[]
+}
+
+model Holding {
+  id           String    @id @default(cuid())
+  portfolioId  String
+  symbol       String
+  name         String?
+  assetType    AssetType @default(EQUITY)
+  units        Decimal   @db.Decimal(18, 6)
+  avgCost      Decimal   @db.Decimal(15, 4)
+  purchaseDate DateTime
+  createdAt    DateTime  @default(now())
+
+  portfolio Portfolio @relation(fields: [portfolioId], references: [id], onDelete: Cascade)
+}
+
+model MarketDataSnapshot {
+  id        String   @id @default(cuid())
+  symbol    String
+  price     Decimal  @db.Decimal(15, 4)
+  change    Decimal? @db.Decimal(10, 4)
+  changePct Decimal? @db.Decimal(8, 4)
+  fetchedAt DateTime @default(now())
+  source    String
+
+  @@index([symbol, fetchedAt])
+}
+
+model PortfolioBriefing {
+  id          String   @id @default(cuid())
+  portfolioId String
+  date        DateTime @db.Date
+  summary     String   @db.Text
+  topMovers   Json
+  riskFlags   Json
+  taxImpact   Json?
+  createdAt   DateTime @default(now())
+
+  portfolio Portfolio @relation(fields: [portfolioId], references: [id], onDelete: Cascade)
+
+  @@unique([portfolioId, date])
+}
