@@ -10,15 +10,20 @@ const PUBLIC_PATHS = ["/login", "/register", "/forgot-password", "/reset-passwor
 export default auth((req: NextRequest & { auth?: { user?: unknown } | null }) => {
   const { nextUrl } = req;
   const session = req.auth;
-  const isPublic = PUBLIC_PATHS.some((p) => nextUrl.pathname.startsWith(p));
+  const isHome = nextUrl.pathname === "/";
+  const isPublic = isHome || PUBLIC_PATHS.some((p) => nextUrl.pathname.startsWith(p));
 
-  // Not logged in → send to login
+  // Not logged in and not a public path → login
   if (!session && !isPublic) {
     return NextResponse.redirect(new URL("/login", nextUrl));
   }
 
-  // Logged-in user hitting login/register → send to dashboard
-  // (dashboard layout will redirect to /onboarding if not done)
+  // Logged-in at home → dashboard
+  if (session && isHome) {
+    return NextResponse.redirect(new URL("/dashboard", nextUrl));
+  }
+
+  // Logged-in at login/register → dashboard
   if (session && (nextUrl.pathname === "/login" || nextUrl.pathname === "/register")) {
     return NextResponse.redirect(new URL("/dashboard", nextUrl));
   }
