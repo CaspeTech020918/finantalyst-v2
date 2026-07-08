@@ -31,8 +31,9 @@ export async function GET() {
     orderBy: { createdAt: "desc" },
   });
 
-  // Compute raised amount per deal
   const dealIds = deals.map((d: { id: string }) => d.id);
+
+  // Raised amount per deal
   const raised = await db.investmentInterest.groupBy({
     by: ["dealId"],
     where: { dealId: { in: dealIds }, status: "PENDING" },
@@ -41,11 +42,22 @@ export async function GET() {
   const raisedMap: Record<string, number> = {};
   for (const r of raised) raisedMap[r.dealId] = r._sum.amount ?? 0;
 
+  // Contact request count per deal
+  const contacts = await db.investmentInterest.groupBy({
+    by: ["dealId"],
+    where: { dealId: { in: dealIds }, wantsContact: true },
+    _count: true,
+  });
+  const contactMap: Record<string, number> = {};
+  for (const c of contacts) contactMap[c.dealId] = c._count;
+
   type DealRow = typeof deals[number];
   return NextResponse.json({
     deals: deals.map((d: DealRow) => ({
       ...d,
       raised: raisedMap[d.id] ?? 0,
+      contactCount: contactMap[d.id] ?? 0,
+      isOwner: d.userId === session.user.id,
       myInterest: d.interests[0] ?? null,
       interests: undefined,
     })),

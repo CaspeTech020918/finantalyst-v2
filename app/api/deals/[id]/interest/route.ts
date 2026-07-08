@@ -6,6 +6,7 @@ import { z } from "zod";
 const schema = z.object({
   amount: z.number().positive(),
   message: z.string().max(500).optional(),
+  wantsContact: z.boolean().optional().default(false),
 });
 
 export async function POST(
@@ -32,12 +33,13 @@ export async function POST(
 
     const interest = await db.investmentInterest.upsert({
       where: { dealId_investorId: { dealId: id, investorId: session.user.id } },
-      update: { amount: body.data.amount, message: body.data.message },
+      update: { amount: body.data.amount, message: body.data.message, wantsContact: body.data.wantsContact },
       create: {
         dealId: id,
         investorId: session.user.id,
         amount: body.data.amount,
         message: body.data.message,
+        wantsContact: body.data.wantsContact,
       },
     });
 

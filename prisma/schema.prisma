@@ -127,8 +127,9 @@ model User {
   portfolios          Portfolio[]
   providerConfigs     ProviderConfig[]
   financialAccounts   FinancialAccount[]
-  dealListings        DealListing[]       @relation("StartupDeals")
+  dealListings        DealListing[]        @relation("StartupDeals")
   investmentInterests InvestmentInterest[] @relation("InvestorInterests")
+  passwordResetTokens PasswordResetToken[]
 }
 
 model UserVoiceProfile {
@@ -327,6 +328,7 @@ model DealListing {
   equityPct     Float
   preMoneyVal   Float
   status        DealStatus @default(DRAFT)
+  views         Int        @default(0)
   createdAt     DateTime   @default(now())
   updatedAt     DateTime   @updatedAt
 
@@ -336,18 +338,33 @@ model DealListing {
 }
 
 model InvestmentInterest {
-  id         String      @id @default(cuid())
-  dealId     String
-  deal       DealListing @relation(fields: [dealId], references: [id], onDelete: Cascade)
-  investorId String
-  investor   User        @relation("InvestorInterests", fields: [investorId], references: [id], onDelete: Cascade)
-  amount     Float
-  message    String?
-  status     String      @default("PENDING")
-  createdAt  DateTime    @default(now())
+  id           String      @id @default(cuid())
+  dealId       String
+  deal         DealListing @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  investorId   String
+  investor     User        @relation("InvestorInterests", fields: [investorId], references: [id], onDelete: Cascade)
+  amount       Float
+  message      String?
+  status       String      @default("PENDING")
+  wantsContact Boolean     @default(false)
+  createdAt    DateTime    @default(now())
 
   @@unique([dealId, investorId])
   @@index([investorId])
+}
+
+// ─── Password Reset ───────────────────────────────────────────
+
+model PasswordResetToken {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token     String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
 }
 
 // ─── Investment Intelligence (stubs — full build in Phase 4) ──
