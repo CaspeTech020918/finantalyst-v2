@@ -28,9 +28,9 @@ export async function POST(req: Request) {
     data: { userId: user.id, token, expiresAt },
   });
 
-  // Until Resend is wired up, return the reset link directly for admin/support use
-  const baseUrl = process.env.NEXTAUTH_URL ?? process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
-  const resetUrl = `${baseUrl}/reset-password/${token}`;
+  // Derive origin from the incoming request — works on any environment
+  const origin = new URL(req.url).origin;
+  const resetUrl = `${origin}/reset-password/${token}`;
 
   return NextResponse.json({ ok: true, resetUrl, expiresInMinutes: 60 });
 }
