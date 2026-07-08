@@ -17,6 +17,7 @@ const createSchema = z.object({
 export async function GET() {
   const session = await auth();
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const userId = session.user.id;
 
   const deals = await db.dealListing.findMany({
     where: { status: { in: ["OPEN", "FUNDED"] } },
@@ -24,8 +25,8 @@ export async function GET() {
       user: { select: { name: true } },
       _count: { select: { interests: true } },
       interests: {
-        where: { investorId: session.user.id },
-        select: { amount: true, status: true },
+        where: { investorId: userId },
+        select: { amount: true, status: true, wantsContact: true },
       },
     },
     orderBy: { createdAt: "desc" },
@@ -57,7 +58,7 @@ export async function GET() {
       ...d,
       raised: raisedMap[d.id] ?? 0,
       contactCount: contactMap[d.id] ?? 0,
-      isOwner: d.userId === session.user.id,
+      isOwner: d.userId === userId,
       myInterest: d.interests[0] ?? null,
       interests: undefined,
     })),
