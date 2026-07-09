@@ -39,9 +39,13 @@ export async function POST(req: Request) {
   const resetUrl = `${origin}/reset-password/${token}`;
 
   if (isEmailConfigured()) {
-    // Send real email — don't expose the link in the response
-    await sendPasswordResetEmail({ to: email, resetUrl, name: user.name ?? undefined });
-    return NextResponse.json({ ok: true, sent: true });
+    try {
+      await sendPasswordResetEmail({ to: email, resetUrl, name: user.name ?? undefined });
+      return NextResponse.json({ ok: true, sent: true });
+    } catch (err) {
+      // Email delivery failed — log and fall through to link fallback so users aren't blocked
+      console.error("[forgot-password] Resend error:", err instanceof Error ? err.message : err);
+    }
   }
 
   // Fallback: return the link so the app remains usable without email keys

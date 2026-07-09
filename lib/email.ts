@@ -7,7 +7,9 @@ function getResend(): Resend {
   if (!_resend) _resend = new Resend(process.env.RESEND_API_KEY!);
   return _resend;
 }
-const FROM = process.env.EMAIL_FROM ?? "Finantalyst <noreply@finantalyst.in>";
+// Default to Resend's pre-verified sandbox domain — works immediately without DNS setup.
+// Set EMAIL_FROM=Finantalyst <noreply@yourdomain.com> once your domain is verified in Resend.
+const FROM = process.env.EMAIL_FROM ?? "Finantalyst <onboarding@resend.dev>";
 
 // ── Templates ─────────────────────────────────────────────────
 
