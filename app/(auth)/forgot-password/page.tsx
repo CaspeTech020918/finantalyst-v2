@@ -13,6 +13,7 @@ export default function ForgotPasswordPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [resetUrl, setResetUrl] = useState<string | null>(null);
+  const [emailSent, setEmailSent] = useState(false);
   const [copied, setCopied] = useState(false);
 
   async function submit(e: React.FormEvent) {
@@ -24,9 +25,10 @@ export default function ForgotPasswordPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email }),
     });
-    const data = await res.json() as { ok?: boolean; resetUrl?: string; error?: string };
+    const data = await res.json() as { ok?: boolean; sent?: boolean; resetUrl?: string; error?: string };
     setLoading(false);
     if (!res.ok) { setError(data.error ?? "Something went wrong"); return; }
+    if (data.sent) { setEmailSent(true); return; }
     setResetUrl(data.resetUrl ?? null);
   }
 
@@ -60,7 +62,21 @@ export default function ForgotPasswordPage() {
             <ArrowLeft size={13} /> Back to login
           </Link>
 
-          {resetUrl ? (
+          {emailSent ? (
+            <div className="text-center py-4">
+              <div className="w-12 h-12 rounded-full bg-[var(--color-emerald-dim)] flex items-center justify-center mx-auto mb-4">
+                <CheckCircle2 size={24} className="text-[var(--color-emerald)]" />
+              </div>
+              <p className="font-semibold text-[var(--color-text-primary)] mb-1">Check your email</p>
+              <p className="text-xs text-[var(--color-text-secondary)] mb-5">
+                We sent a password reset link to <strong className="text-[var(--color-text-primary)]">{email}</strong>. It expires in 60 minutes.
+              </p>
+              <p className="text-xs text-[var(--color-text-muted)]">
+                Didn&apos;t receive it? Check your spam folder, or{" "}
+                <button onClick={() => setEmailSent(false)} className="text-[var(--color-indigo)] hover:underline">try again</button>.
+              </p>
+            </div>
+          ) : resetUrl ? (
             <div>
               <div className="flex items-center gap-3 mb-4">
                 <div className="w-10 h-10 rounded-full bg-[var(--color-emerald-dim)] flex items-center justify-center shrink-0">
@@ -133,7 +149,7 @@ export default function ForgotPasswordPage() {
               </form>
             </>
           )}
-        </GlassCard>
+          </GlassCard>
       </motion.div>
     </div>
   );

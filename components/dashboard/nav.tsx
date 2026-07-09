@@ -4,18 +4,20 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
 import type { Session } from "next-auth";
-import { LayoutDashboard, Wallet, BarChart3, FileText, ShieldCheck, Settings, LogOut, Bot, Rocket } from "lucide-react";
+import { LayoutDashboard, Wallet, BarChart3, FileText, ShieldCheck, Settings, LogOut, Bot, Rocket, Link2, Inbox } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ThemeToggle } from "@/components/theme-toggle";
 
 const NAV_ITEMS = [
-  { href: "/dashboard", label: "Dashboard", icon: <LayoutDashboard size={18} /> },
-  { href: "/dashboard/cashflow", label: "Cash Flow", icon: <Wallet size={18} /> },
-  { href: "/dashboard/investments", label: "Investments", icon: <BarChart3 size={18} /> },
-  { href: "/dashboard/tax", label: "Tax", icon: <FileText size={18} /> },
-  { href: "/dashboard/compliance", label: "Compliance", icon: <ShieldCheck size={18} /> },
-  { href: "/dashboard/cfo", label: "AI CFO", icon: <Bot size={18} /> },
-  { href: "/dashboard/raise", label: "Deal Room", icon: <Rocket size={18} /> },
+  { href: "/dashboard",              label: "Dashboard",    icon: <LayoutDashboard size={18} /> },
+  { href: "/dashboard/cashflow",     label: "Cash Flow",    icon: <Wallet size={18} /> },
+  { href: "/dashboard/investments",  label: "Investments",  icon: <BarChart3 size={18} /> },
+  { href: "/dashboard/tax",          label: "Tax",          icon: <FileText size={18} /> },
+  { href: "/dashboard/compliance",   label: "Compliance",   icon: <ShieldCheck size={18} /> },
+  { href: "/dashboard/cfo",          label: "AI CFO",       icon: <Bot size={18} /> },
+  { href: "/dashboard/raise",        label: "Deal Room",    icon: <Rocket size={18} /> },
+  { href: "/dashboard/actions",      label: "Agent Inbox",  icon: <Inbox size={18} /> },
+  { href: "/dashboard/integrations", label: "Integrations", icon: <Link2 size={18} /> },
 ];
 
 export function DashboardNav({ session }: { session: Session }) {

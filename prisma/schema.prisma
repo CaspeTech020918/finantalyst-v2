@@ -129,7 +129,8 @@ model User {
   financialAccounts   FinancialAccount[]
   dealListings        DealListing[]        @relation("StartupDeals")
   investmentInterests InvestmentInterest[] @relation("InvestorInterests")
-  passwordResetTokens PasswordResetToken[]
+  passwordResetTokens  PasswordResetToken[]
+  brokerageConnections BrokerageConnection[]
 }
 
 model UserVoiceProfile {
@@ -364,6 +365,25 @@ model PasswordResetToken {
   usedAt    DateTime?
   createdAt DateTime  @default(now())
 
+  @@index([userId])
+}
+
+// ─── Brokerage Connections ────────────────────────────────────
+
+model BrokerageConnection {
+  id           String    @id @default(cuid())
+  userId       String
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  broker       String    // ZERODHA | ANGEL_ONE | UPSTOX | GROWW
+  clientId     String?
+  accessToken  String?   @db.Text
+  refreshToken String?   @db.Text
+  expiresAt    DateTime?
+  isActive     Boolean   @default(true)
+  connectedAt  DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@unique([userId, broker])
   @@index([userId])
 }
 
