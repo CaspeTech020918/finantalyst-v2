@@ -1,7 +1,12 @@
 import { Resend } from "resend";
 
-// Keys live in env — never hardcoded
-const resend = new Resend(process.env.RESEND_API_KEY);
+// Lazy — only instantiate when a key is actually present so the build
+// doesn't throw when RESEND_API_KEY is absent from the environment.
+let _resend: Resend | null = null;
+function getResend(): Resend {
+  if (!_resend) _resend = new Resend(process.env.RESEND_API_KEY!);
+  return _resend;
+}
 const FROM = process.env.EMAIL_FROM ?? "Finantalyst <noreply@finantalyst.in>";
 
 // ── Templates ─────────────────────────────────────────────────
@@ -55,7 +60,7 @@ export async function sendPasswordResetEmail(opts: { to: string; resetUrl: strin
     </p>
   `);
 
-  return resend.emails.send({ from: FROM, to, subject: "Reset your Finantalyst password", html });
+  return getResend().emails.send({ from: FROM, to, subject: "Reset your Finantalyst password", html });
 }
 
 export async function sendWelcomeEmail(opts: { to: string; name?: string }) {
@@ -85,11 +90,11 @@ export async function sendWelcomeEmail(opts: { to: string; name?: string }) {
     </a>
   `);
 
-  return resend.emails.send({ from: FROM, to, subject: "Welcome to Finantalyst — your AI CFO is ready", html });
+  return getResend().emails.send({ from: FROM, to, subject: "Welcome to Finantalyst — your AI CFO is ready", html });
 }
 
 export async function sendEmail(opts: { to: string; subject: string; html: string }) {
-  return resend.emails.send({ from: FROM, ...opts });
+  return getResend().emails.send({ from: FROM, ...opts });
 }
 
 /** Returns true if Resend is configured (key present and not the placeholder) */
